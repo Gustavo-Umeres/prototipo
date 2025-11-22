@@ -3,588 +3,356 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienestar Contigo - Prototipo</title>
-    <!-- Incluyendo Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Incluyendo Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <title>Bienestar Contigo - Tu App de Soporte</title>
+    <!-- Incluyendo Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Incluyendo Lucide Icons --><script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Incluyendo Chart.js para gráficos --><script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
     <style>
         /* Configuración de color y fuente para Tailwind */
         :root {
-            --color-primary: #1e40af; /* Azul oscuro para botones/énfasis */
-            --color-secondary: #fcd34d; /* Amarillo para acentos */
-            --color-success: #10b981; /* Verde para calma */
-            --color-danger: #ef4444; /* Rojo para estrés */
+            --color-primary: #F97316; /* Naranja fuerte para énfasis (Orange 600) */
+            --color-primary-dark: #E25800; /* Naranja ligeramente más oscuro para hover */
+            --color-secondary: #FFEDD5; /* Naranja muy claro para fondos (Orange 100) */
+            --color-success: #10b981; /* Verde (Calma) */
+            --color-success-dark: #059669; /* Verde ligeramente más oscuro para hover */
+            --color-danger: #ef4444; /* Rojo (Alerta/Estrés) */
+            --color-danger-dark: #cc3737; /* Rojo ligeramente más oscuro para hover */
+            --color-warning: #facc15; /* Amarillo (Pre-alerta) */
         }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
         }
-        /* Estilos para el menú lateral (Drawer) */
-        .drawer-overlay {
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s, visibility 0.3s;
-        }
-        .drawer-content {
-            transform: translateX(-100%);
-            transition: transform 0.3s ease-in-out;
-        }
-        .drawer-open .drawer-overlay {
-            visibility: visible;
-            opacity: 1;
-        }
-        .drawer-open .drawer-content {
-            transform: translateX(0);
-        }
+        .bg-primary { background-color: var(--color-primary); }
+        .text-primary { color: var(--color-primary); }
+        .border-primary { border-color: var(--color-primary); }
+        .bg-secondary { background-color: var(--color-secondary); }
         
-        /* Animación de carga */
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            z-index: 50;
-            justify-content: center;
-            align-items: center;
+        /* Ocultar elementos en vistas de autenticación */
+        .hide-on-auth { display: none !important; } 
+        
+        /* Z-INDEX AJUSTADOS */
+        .card-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
+        #loading-overlay { z-index: 70; } 
+        .modal-base { z-index: 60; } 
+        #toast-container { z-index: 50; }
+
+        /* Spinner */
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--color-primary);
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
+            border: 4px solid #f3f3f3; border-top: 4px solid var(--color-primary);
+            border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Ocultar navegación y botón flotante en la vista de bienvenida */
-        .hide-on-welcome {
-            display: none;
+
+        /* Hover Simplificado: Usar background-color en lugar de clases de Tailwind */
+
+        .hover-primary-dark:hover { background-color: var(--color-primary-dark); }
+        .hover-success-dark:hover { background-color: var(--color-success-dark); }
+        .hover-danger-dark:hover { background-color: var(--color-danger-dark); }
+        .hover-gray-dark:hover { background-color: #E5E7EB; /* Gris claro */ }
+
+        /* Estilo para el botón de Cerrar Sesión en el Header */
+        #logout-button-header {
+            transition: background-color 0.2s;
+            text-align: center;
+            border-radius: 8px;
         }
+
+        /* Estilo general para botones de formularios */
+        .auth-button {
+            width: 100%; font-weight: bold; padding: 0.75rem 1rem; border-radius: 0.75rem;
+            transition: all 0.15s ease-in-out; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .auth-button-primary { background-color: var(--color-primary); color: white; border: 2px solid rgba(255, 255, 255, 0.5); }
+        .auth-button-success { background-color: var(--color-success); color: white; border: 2px solid rgba(16, 185, 129, 0.5); }
     </style>
 </head>
 <body class="min-h-screen">
 
-    <!-- Contenedor Principal de la App (Responsive Wrapper) -->
-    <div id="app-container" class="max-w-md mx-auto bg-white min-h-screen shadow-lg">
+    <!-- Contenedor Principal --><div id="app-container" class="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative">
         
-        <!-- Overlay de Carga (para simular el pago/proceso) -->
-        <div id="loading-overlay" class="loading-overlay">
+        <!-- Notificaciones --><div id="toast-container" class="absolute top-2 right-2 left-2 z-50 pointer-events-none"></div>
+
+        <!-- Loading Overlay --><div id="loading-overlay" class="hidden absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-70">
             <div class="flex flex-col items-center p-6 bg-white rounded-xl shadow-lg">
                 <div class="spinner mb-4"></div>
-                <p class="text-gray-700 font-semibold">Procesando cita...</p>
+                <p id="loading-text" class="text-gray-700 font-semibold">Cargando...</p>
             </div>
         </div>
-
-        <!-- Header (Estilo SuperMamaApp) -->
-        <header id="app-header" class="bg-primary p-4 flex justify-between items-center sticky top-0 z-20 shadow-md hide-on-welcome">
-            <button onclick="toggleDrawer()" aria-label="Abrir Menú" class="text-white p-1 rounded-md hover:bg-blue-700 transition">
-                <i data-lucide="menu" class="w-7 h-7"></i>
+        
+        <!-- Header --><header id="app-header" class="bg-primary p-4 flex justify-between items-center sticky top-0 z-20 shadow-md hide-on-auth">
+            <button id="logout-button-header" onclick="AuthService.logout()" aria-label="Cerrar Sesión" 
+                    class="text-white bg-white/20 hover-primary-dark p-2 rounded-md transition flex items-center text-sm font-semibold border-2 border-white/50">
+                <i data-lucide="log-out" class="w-5 h-5 mr-2"></i> Salir
             </button>
-            <h1 class="text-2xl font-extrabold text-white">Bienestar Contigo</h1>
-            <button aria-label="Notificaciones" class="text-white p-1 rounded-md hover:bg-blue-700 transition">
+            <h1 class="text-xl font-extrabold text-white">Bienestar Contigo</h1>
+            <button aria-label="Notificaciones" onclick="showAppAlerts()" class="text-white p-1 rounded-md hover-primary-dark transition relative">
                 <i data-lucide="bell" class="w-6 h-6"></i>
+                <span id="alert-badge" class="absolute top-0 right-0 h-3 w-3 rounded-full bg-danger ring-2 ring-primary hidden"></span>
             </button>
         </header>
 
-        <!-- Contenido de las Vistas -->
-        <main id="content" class="p-4 pb-20">
-            <!-- El contenido se cargará aquí por JavaScript -->
-        </main>
+        <!-- Contenido --><main id="content" class="p-4 pb-20"></main>
         
-        <!-- Botón Flotante de Registro Rápido (Bitácora) -->
-        <button id="floating-btn" onclick="showPage('log')" aria-label="Registro Rápido" 
-                class="fixed bottom-6 right-6 md:right-1/2 md:translate-x-[220px] 
-                       bg-red-600 hover:bg-red-700 text-white p-4 rounded-full 
-                       shadow-2xl transition duration-150 transform hover:scale-110 z-30 hide-on-welcome">
-            <i data-lucide="plus" class="w-6 h-6"></i>
-        </button>
-
-        <!-- Barra de Navegación Inferior (Alternativa para móvil) -->
-        <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 max-w-md mx-auto flex justify-around p-2 z-20 shadow-inner hide-on-welcome">
+        <!-- Nav Inferior --><nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 max-w-md mx-auto flex justify-around p-2 z-20 shadow-inner hide-on-auth">
             <button id="nav-home" class="flex flex-col items-center p-2 rounded-xl transition-colors active-page" onclick="showPage('home')">
-                <i data-lucide="layout-dashboard" class="nav-icon active w-6 h-6"></i>
-                <span class="text-xs mt-1 text-primary font-semibold">Inicio</span>
+                <i data-lucide="layout-dashboard" class="nav-icon w-6 h-6 text-gray-500"></i>
+                <span class="text-xs mt-1 text-gray-500">Inicio</span>
             </button>
             <button id="nav-log" class="flex flex-col items-center p-2 rounded-xl transition-colors" onclick="showPage('log')">
-                <i data-lucide="book-open" class="nav-icon w-6 h-6"></i>
+                <i data-lucide="notebook-pen" class="nav-icon w-6 h-6 text-gray-500"></i>
                 <span class="text-xs mt-1 text-gray-500">Bitácora</span>
             </button>
             <button id="nav-info" class="flex flex-col items-center p-2 rounded-xl transition-colors" onclick="showPage('info')">
-                <i data-lucide="info" class="nav-icon w-6 h-6"></i>
+                <i data-lucide="info" class="nav-icon w-6 h-6 text-gray-500"></i>
                 <span class="text-xs mt-1 text-gray-500">Info</span>
             </button>
             <button id="nav-appointment" class="flex flex-col items-center p-2 rounded-xl transition-colors" onclick="showPage('appointment')">
-                <i data-lucide="calendar-check" class="nav-icon w-6 h-6"></i>
+                <i data-lucide="calendar-check" class="nav-icon w-6 h-6 text-gray-500"></i>
                 <span class="text-xs mt-1 text-gray-500">Citas</span>
             </button>
         </nav>
-
-        <!-- Menú Lateral (Drawer) -->
-        <div id="drawer" class="drawer-overlay fixed inset-0 z-40">
-            <!-- Overlay -->
-            <div onclick="toggleDrawer()" class="absolute inset-0 bg-black bg-opacity-50"></div>
-            <!-- Contenido del Menú -->
-            <div class="drawer-content fixed top-0 left-0 h-full w-64 bg-white shadow-xl flex flex-col">
-                <div class="bg-primary p-6 text-white text-lg font-bold">
-                    Menú Principal
-                </div>
-                <nav class="flex flex-col p-4 space-y-2">
-                    <a href="#" onclick="showPage('home'); toggleDrawer()" class="flex items-center p-3 rounded-xl hover:bg-gray-100 text-gray-700 font-medium">
-                        <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3 text-primary"></i> Inicio
-                    </a>
-                    <a href="#" onclick="showPage('log'); toggleDrawer()" class="flex items-center p-3 rounded-xl hover:bg-gray-100 text-gray-700 font-medium">
-                        <i data-lucide="book-open" class="w-5 h-5 mr-3 text-primary"></i> Bitácora / Registro
-                    </a>
-                    <a href="#" onclick="showPage('info'); toggleDrawer()" class="flex items-center p-3 rounded-xl hover:bg-gray-100 text-gray-700 font-medium">
-                        <i data-lucide="info" class="w-5 h-5 mr-3 text-primary"></i> Info y Recetas
-                    </a>
-                    <a href="#" onclick="showPage('appointment'); toggleDrawer()" class="flex items-center p-3 rounded-xl hover:bg-gray-100 text-gray-700 font-medium">
-                        <i data-lucide="calendar-check" class="w-5 h-5 mr-3 text-primary"></i> Reservar Cita Psicológica
-                    </a>
-                    <div class="border-t border-gray-200 mt-4 pt-4">
-                        <a href="#" class="flex items-center p-3 rounded-xl text-sm text-gray-500 hover:bg-gray-100">
-                            <i data-lucide="settings" class="w-5 h-5 mr-3"></i> Configuración
-                        </a>
-                        <a href="#" onclick="showPage('welcome')" class="flex items-center p-3 rounded-xl text-sm text-red-500 hover:bg-red-50">
-                            <i data-lucide="log-out" class="w-5 h-5 mr-3"></i> Cerrar Sesión
-                        </a>
-                    </div>
-                </nav>
-                <div class="mt-auto p-4 text-xs text-gray-400 border-t">
-                    © 2024 Bienestar Contigo
-                </div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- Modal para el Kit de Primeros Auxilios -->
-    <div id="modal-kit" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+    <!-- Modal Alertas --><div id="modal-alerts" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 modal-base z-60">
         <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full transform transition-all scale-100">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-red-600 flex items-center">
-                    <i data-lucide="shield-alert" class="w-6 h-6 mr-2"></i>
-                    Alerta de Estrés
-                </h3>
-                <button onclick="closeModal('modal-kit')" class="text-gray-400 hover:text-gray-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
+                <h3 class="text-xl font-bold text-primary flex items-center"><i data-lucide="zap" class="w-6 h-6 mr-2"></i> Notificaciones</h3>
+                <button onclick="closeModal('modal-alerts')" class="text-gray-600 hover:text-primary p-1"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <p class="text-gray-700 mb-4">¡Alto! Sentir culpa o estrés es normal. Tómate 2 minutos para el "Kit de Calma".</p>
-            <button onclick="startCalmKit()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-150 transform hover:scale-105">
-                Iniciar Kit de Calma (5-4-3-2-1)
-            </button>
-        </div>
-    </div>
-    
-    <!-- Modal de Confirmación de Cita -->
-    <div id="modal-appointment-confirm" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full transform transition-all scale-100">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Cita</h3>
-            <p class="text-gray-700 mb-4">Estás a punto de agendar tu cita psicológica por **S/ 60**. Recuerda que este precio accesible incluye el margen de S/ 15 para la app. ¿Confirmas el pago y agendamiento?</p>
-            <div class="flex justify-end space-x-3">
-                <button onclick="closeModal('modal-appointment-confirm')" class="px-4 py-2 text-gray-600 rounded-xl hover:bg-gray-100 transition">
-                    Cancelar
-                </button>
-                <button onclick="processPayment()" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-md transition">
-                    Sí, Pagar S/ 60
-                </button>
-            </div>
+            <div id="alerts-content" class="space-y-3"></div>
         </div>
     </div>
 
+    <!-- Modal Kit Calma --><div id="modal-calm-kit" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 modal-base z-60">
+        <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full transform transition-all scale-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-danger flex items-center"><i data-lucide="shield-alert" class="w-6 h-6 mr-2"></i> Pausa</h3>
+                <button onclick="closeModal('modal-calm-kit')" class="text-gray-600 hover-gray-dark p-1"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <p class="text-gray-700 mb-4">¡Alto! Tómate un momento.</p>
+            <button onclick="startCalmKit()" class="w-full bg-danger hover-danger-dark text-white font-bold py-3 px-4 rounded-xl shadow-lg border-2 border-danger/50">Iniciar Kit (5-4-3-2-1)</button>
+        </div>
+    </div>
 
     <script>
-        // Inicializar Lucide Icons
         lucide.createIcons();
 
-        // ** SIMULACIÓN DE BD SIMPLE (Bitácora) **
-        // Array para almacenar entradas durante la sesión
-        let logEntries = [
-            { time: '08:00 AM', type: 'Desayuno', content: 'Desayuno en casa', color: 'border-primary' },
-            { time: '10:00 AM', type: 'Emoción', content: 'Emoción registrada (Motivado)', color: 'border-success' }
+        // ** 1. CONSTANTES Y CONFIGURACIÓN **
+        const CONTENT_DIV = document.getElementById('content');
+        const CARBS_LIMIT = 200; 
+        const PLIN_QR_IMAGE = 'qr.jpg'; 
+        const LOGO_IMAGE = 'logo.jpeg'; 
+        const MEET_LINK = 'https://meet.google.com/yqc-jyno-sic'; 
+        
+        let currentUser = null;
+        let chartInstance = null;
+        let navButtons = {}; 
+        
+        // DATA
+        const PERUVIAN_MEALS = [
+            { name: "Lomo Saltado (Promedio)", carbs: 70 },
+            { name: "Pollo a la Brasa (1/4)", carbs: 55 },
+            { name: "Tallarines Verdes", carbs: 80 },
+            { name: "Ají de Gallina", carbs: 65 },
+            { name: "Causa Rellena", carbs: 45 },
+            { name: "Ceviche Clásico (Sin guarniciones)", carbs: 10 },
+            { name: "Arroz con Pollo", carbs: 75 },
+            { name: "Sopa de Pollo (Fideos)", carbs: 40 },
+            { name: "Pescado Frito + Ensalada", carbs: 25 },
+            { name: "Seco de Res con Frejoles", carbs: 95 },
+            { name: "Papa a la Huancaína (2 und)", carbs: 30 },
+            { name: "Rocoto Relleno (Mediano)", carbs: 50 },
+            { name: "Caldo de Gallina (Con fideos y papa)", carbs: 60 },
+            { name: "Arroz Chaufa de Pollo", carbs: 85 },
+            { name: "Tacu Tacu con Lomo", carbs: 110 },
+            { name: "Mazamorra Morada (Porción)", carbs: 45 },
+            { name: "Picarones (2 und)", carbs: 55 },
+            { name: "Leche Asada (Porción)", carbs: 25 },
+            { name: "Carapulcra (Porción)", carbs: 80 },
+            { name: "Anticuchos (3 und con papa)", carbs: 40 },
+            { name: "Parihuela (Con arroz)", carbs: 60 },
+            { name: "Chupe de Camarones", carbs: 50 },
+            { name: "Salchipapa (Porción)", carbs: 75 },
+            { name: "Inca Kola (300ml)", carbs: 35 },
         ];
 
-        // --- Manejo del Menú Lateral (Drawer) ---
-        function toggleDrawer() {
-            document.getElementById('drawer').classList.toggle('drawer-open');
-        }
 
-        // --- Manejo de la Navegación (Single Page App) ---
-        let currentPage = 'welcome';
-        const contentDiv = document.getElementById('content');
-        const navButtons = {
-            home: document.getElementById('nav-home'),
-            log: document.getElementById('nav-log'),
-            info: document.getElementById('nav-info'),
-            appointment: document.getElementById('nav-appointment')
+        const INFO_DB = [
+            { title: "Manejo Inicial de la Diabetes", icon: "help-circle", color: "primary", content: "No te culpes. La diabetes es manejable. Empieza aprendiendo sobre el conteo de carbohidratos y haz pequeños cambios diarios." },
+            { title: "El Plato Inteligente", icon: "egg", color: "success", content: "Divide tu plato: 50% Vegetales, 25% Proteína (Pescado, Pollo), 25% Carbohidratos (Arroz, Papa, etc.). ¡Funciona!" },
+            { title: "Consejos de Carbohidratos Peruanos", icon: "leaf", color: "warning", content: "Prioriza tubérculos andinos como la quinua o las habas sobre la papa y el arroz. Revisa nuestra lista de platos en esta sección." },
+            { title: "Actividad Física y Glucosa", icon: "bike", color: "primary", content: "Caminar 30 minutos después de comer puede reducir significativamente tus niveles de glucosa en sangre. ¡Pruébalo!" },
+            { title: "Mitos Comunes", icon: "message-square-off", color: "danger", content: "El azúcar no causa la diabetes, pero una dieta alta en carbohidratos y factores genéticos sí influyen. La clave es el equilibrio." },
+        ];
+
+        // ** 2. SERVICIO DE ALMACENAMIENTO (LOCAL STORAGE)**
+
+        const StorageService = {
+            get: (key, def = null) => {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : def;
+            },
+            set: (key, d) => {
+                localStorage.setItem(key, JSON.stringify(d));
+            },
+            getUserKey: (sk) => currentUser ? `${sk}_${currentUser.email}` : null,
+
+            saveUserData: (k, d) => {
+                const uk = StorageService.getUserKey(k);
+                if (uk) StorageService.set(uk, d);
+            },
+            loadUserData: (k, def = []) => {
+                const uk = StorageService.getUserKey(k);
+                return uk ? StorageService.get(uk, def) : def;
+            },
         };
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const header = document.getElementById('app-header');
-        const bottomNav = document.getElementById('bottom-nav');
-        const floatingBtn = document.getElementById('floating-btn');
 
+        // ** 3. SERVICIO DE AUTENTICACIÓN **
 
-        function updateAppUI(pageId) {
-            const isWelcome = pageId === 'welcome';
-            const action = isWelcome ? 'add' : 'remove';
-            
-            // Ocultar/Mostrar elementos de navegación
-            header.classList[action]('hide-on-welcome');
-            bottomNav.classList[action]('hide-on-welcome');
-            floatingBtn.classList[action]('hide-on-welcome');
-
-            // Ajustar padding del main content si es la vista de bienvenida (sin nav)
-            contentDiv.classList.toggle('pb-20', !isWelcome); 
-            contentDiv.classList.toggle('min-h-screen', isWelcome); 
-        }
-
-        function showPage(pageId) {
-            currentPage = pageId;
-            updateAppUI(pageId); 
-
-            if (pageId !== 'welcome') {
-                updateNavigation(pageId);
-            }
-            renderContent(pageId);
-            
-            if (document.getElementById('drawer').classList.contains('drawer-open')) {
-                toggleDrawer();
-            }
-            // Re-renderizar iconos de Lucide y actualizar la Bitácora
-            setTimeout(() => {
-                lucide.createIcons();
-                if (pageId === 'log') {
-                    renderLogList();
+        const AuthService = {
+            check: () => {
+                const ae = StorageService.get('activeUser');
+                if (ae) {
+                    currentUser = StorageService.get('users', {})[ae] || null;
+                } else {
+                    currentUser = null;
                 }
-            }, 50);
-        }
-
-        function updateNavigation(pageId) {
-            Object.keys(navButtons).forEach(key => {
-                const btn = navButtons[key];
-                const icon = btn.querySelector('i');
-                const text = btn.querySelector('span');
                 
-                // Resetear clases
-                text.classList.remove('text-primary', 'font-semibold');
-                text.classList.add('text-gray-500');
-
-                if (key === pageId) {
-                    text.classList.add('text-primary', 'font-semibold');
-                    text.classList.remove('text-gray-500');
+                if (currentUser) {
+                    loadUserContext();
+                    document.getElementById('logout-button-header').classList.remove('hide-on-auth'); 
+                    showPage('home');
+                } else {
+                    document.getElementById('logout-button-header').classList.add('hide-on-auth'); 
+                    showPage('welcome');
                 }
-            });
-        }
+            },
+            register: (name, email, password) => {
+                let users = StorageService.get('users', {});
+                if (users[email]) {
+                    showMessage('Ese email ya está registrado.', 'bg-danger');
+                    return false;
+                }
+                users[email] = { name, email, password };
+                StorageService.set('users', users);
+                showMessage('Cuenta creada con éxito. ¡Inicia sesión!', 'bg-success');
+                return true;
+            },
+            login: (email, password) => {
+                const users = StorageService.get('users', {});
+                const user = users[email];
+                if (user && user.password === password) {
+                    StorageService.set('activeUser', email);
+                    AuthService.check();
+                    return true;
+                } else {
+                    showMessage('Email o contraseña incorrectos.', 'bg-danger');
+                    return false;
+                }
+            },
+            logout: () => {
+                StorageService.set('activeUser', null);
+                currentUser = null;
+                
+                userCarbLog = [];
+                userGlucoseLog = [];
+                userAppointments = [];
 
-        // --- Vistas/Contenido de la App (HTML Templates) ---
-        const pages = {
-            welcome: `
-                <div class="flex flex-col items-center justify-center min-h-[calc(100vh-2rem)] p-6 text-center">
-                    <div class="bg-primary p-8 rounded-full mb-6 shadow-xl">
-                        <i data-lucide="heart-pulse" class="w-16 h-16 text-white"></i>
-                    </div>
-                    <h1 class="text-4xl font-extrabold text-primary mb-3">Bienestar Contigo</h1>
-                    <p class="text-lg text-gray-700 mb-8">Tu acompañante emocional y práctico para manejar la diabetes tipo 2 sin estrés ni culpa.</p>
-                    
-                    <button onclick="showPage('home')" class="w-full bg-success hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl mb-3 shadow-lg transition duration-150 transform hover:scale-[1.01]">
-                        Iniciar Sesión
-                    </button>
-                    <button onclick="showPage('home')" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-xl shadow transition duration-150">
-                        Crear Cuenta
-                    </button>
-                    <p class="text-sm text-gray-500 mt-4">Al acceder, aceptas los términos de servicio.</p>
-                </div>
-            `,
-            home: `
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">¡Hola! Es hora de tu registro emocional</h2>
-                    
-                    <!-- Medidor Emocional Diario -->
-                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-                        <h2 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
-                            <i data-lucide="trending-up" class="w-5 h-5 mr-2 text-primary"></i>
-                            Tu Bienestar Hoy
-                        </h2>
-                        <p class="text-sm text-gray-600 mb-4">¿Cómo te sientes en este momento? (Punto de dolor clave)</p>
-                        <div class="flex justify-between items-center mb-4">
-                            <span class="text-4xl cursor-pointer hover:scale-110 transition duration-150" onclick="recordEmotion('Muy Estresado')">
-                                😠
-                            </span>
-                            <span class="text-4xl cursor-pointer hover:scale-110 transition duration-150" onclick="recordEmotion('Cansado/Culpable')">
-                                😥
-                            </span>
-                            <span class="text-4xl cursor-pointer hover:scale-110 transition duration-150" onclick="recordEmotion('Neutral')">
-                                😐
-                            </span>
-                            <span class="text-4xl cursor-pointer hover:scale-110 transition duration-150" onclick="recordEmotion('Tranquilo')">
-                                😊
-                            </span>
-                            <span class="text-4xl cursor-pointer hover:scale-110 transition duration-150" onclick="recordEmotion('Motivado')">
-                                😄
-                            </span>
-                        </div>
-                        <p id="emotion-status" class="text-center font-semibold text-gray-700">Selecciona tu emoción...</p>
-                    </div>
-
-                    <!-- Botón Destacado: Kit de Calma -->
-                    <button onclick="openModal('modal-kit')" class="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-800 font-bold py-3 px-4 rounded-xl shadow-lg transition duration-150 transform hover:scale-[1.01] flex items-center justify-center">
-                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i>
-                        Kit de Primeros Auxilios Emocionales
-                    </button>
-
-                    <!-- Resumen del Día -->
-                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-                        <h2 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
-                            <i data-lucide="clipboard-check" class="w-5 h-5 mr-2 text-success"></i>
-                            Tus Logros de Hoy
-                        </h2>
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-700">Registro de Emoción</span>
-                                <i data-lucide="check-circle" class="w-6 h-6 text-success"></i>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-700">Comida Saludable</span>
-                                <i data-lucide="x-circle" class="w-6 h-6 text-danger"></i>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-700">Actividad Física (Pasos)</span>
-                                <span class="font-bold text-gray-900">3,450 / 8,000</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `,
-            log: `
-                <div class="space-y-6">
-                    <!-- Título de Bitácora -->
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Bitácora Diario (Registro)</h2>
-                    
-                    <!-- Registro de Comida (Simplificado como Aprendimos) -->
-                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-                        <h3 class="text-lg font-bold text-gray-800 mb-3">¿Qué almorzaste?</h3>
-                        <p class="text-sm text-gray-600 mb-4">Simplifica tu registro para reducir la carga mental.</p>
-                        <div class="flex flex-wrap justify-between gap-3">
-                            <button class="flex flex-col items-center justify-center p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition duration-150 shadow-sm w-[calc(33%-6px)]" onclick="logEntry('Comida: Casa')">
-                                <i data-lucide="home" class="w-6 h-6 text-primary mb-1"></i>
-                                <span class="text-xs text-gray-700 font-semibold">Casa</span>
-                            </button>
-                            <button class="flex flex-col items-center justify-center p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition duration-150 shadow-sm w-[calc(33%-6px)]" onclick="logEntry('Comida: Calle')">
-                                <i data-lucide="truck" class="w-6 h-6 text-yellow-600 mb-1"></i>
-                                <span class="text-xs text-gray-700 font-semibold">Calle</span>
-                            </button>
-                            <button class="flex flex-col items-center justify-center p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition duration-150 shadow-sm w-[calc(33%-6px)]" onclick="logEntry('Comida: Antojo')">
-                                <i data-lucide="cookie" class="w-6 h-6 text-red-600 mb-1"></i>
-                                <span class="text-xs text-gray-700 font-semibold">Antojo</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Lista de Bitácora -->
-                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-                        <h3 class="text-lg font-bold text-gray-800 mb-3">Tu Historial de Hoy</h3>
-                        <ul id="log-list" class="space-y-2 text-sm text-gray-700">
-                            <!-- Los registros se llenarán aquí con renderLogList() -->
-                        </ul>
-                    </div>
-                </div>
-            `,
-            info: `
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Información y Recetas (Guía Sin Culpa)</h2>
-
-                    <!-- Módulo de Búsqueda -->
-                    <div class="bg-white p-4 rounded-2xl shadow-lg border border-gray-100">
-                        <h3 class="text-lg font-bold text-gray-800 mb-3">Recetas Económicas de VES (Basado en Aprendizaje A)</h3>
-                        <p class="text-sm text-gray-600 mb-4">Opciones saludables con alimentos locales y baratos.</p>
-                        <div class="relative">
-                            <input type="text" placeholder="Ej: Lentejas, Pollo a la brasa, Quinua..." class="w-full p-3 pl-10 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary">
-                            <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
-                        </div>
-                    </div>
-
-                    <!-- Consejos Principales -->
-                    <div class="space-y-3">
-                        <div class="bg-white p-4 rounded-xl shadow-md flex items-center space-x-3">
-                            <div class="p-2 bg-yellow-100 rounded-full">
-                                <i data-lucide="egg" class="w-6 h-6 text-yellow-600"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-semibold text-gray-800">Truco del Huevo Frito</h4>
-                                <p class="text-sm text-gray-600">Acompaña el arroz con más vegetales para bajar el índice glucémico total.</p>
-                            </div>
-                        </div>
-                        <div class="bg-white p-4 rounded-xl shadow-md flex items-center space-x-3">
-                            <div class="p-2 bg-green-100 rounded-full">
-                                <i data-lucide="leaf" class="w-6 h-6 text-green-600"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-semibold text-gray-800">Menos Carbo, Más Fibra</h4>
-                                <p class="text-sm text-gray-600">Usa quinua en lugar de papa para tus guisos sin aumentar el costo.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `,
-            appointment: `
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Agendar Cita Psicológica</h2>
-
-                    <!-- Información del Servicio -->
-                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-                        <h3 class="text-xl font-bold text-primary mb-3">Apoyo Profesional Accesible (Prueba de Viabilidad)</h3>
-                        <p class="text-gray-700 mb-3">Agenda una sesión confidencial de 45 min con un psicólogo especializado en estrés crónico y diabetes.</p>
-                        <div class="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
-                            <span class="font-bold text-gray-800">Costo por Sesión:</span>
-                            <span class="text-2xl font-extrabold text-green-600">S/ 60</span>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-2">*(Tu costo es S/ 60; S/ 45 para el psicólogo, S/ 15 de margen para la app)*</p>
-                    </div>
-
-                    <!-- Selector de Fecha/Hora (Simplificado) -->
-                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-                        <h3 class="text-lg font-bold text-gray-800 mb-3">Selecciona Fecha y Hora</h3>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Preferida</label>
-                        <input type="date" value="2025-12-01" class="w-full p-3 border border-gray-300 rounded-xl mb-4">
-                        
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Hora Disponible</label>
-                        <select class="w-full p-3 border border-gray-300 rounded-xl">
-                            <option>09:00 AM</option>
-                            <option>11:30 AM</option>
-                            <option>03:00 PM</option>
-                        </select>
-                    </div>
-
-                    <!-- Botón de Acción -->
-                    <button onclick="openModal('modal-appointment-confirm')" class="w-full bg-primary hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-xl shadow-xl transition duration-150 transform hover:scale-[1.02]">
-                        Agendar Cita (Pagar S/ 60)
-                    </button>
-                </div>
-            `
+                showMessage('Sesión cerrada.', 'bg-primary');
+                showPage('welcome'); 
+            }
         };
 
-        function renderContent(pageId) {
-            contentDiv.innerHTML = pages[pageId];
+        // ** 4. ESTADO GLOBAL DE LA APP **
+        let userCarbLog = [], userGlucoseLog = [], userAppointments = [];
+
+        function loadUserContext() {
+            if (currentUser) {
+                userCarbLog = StorageService.loadUserData('carbs', []);
+                userGlucoseLog = StorageService.loadUserData('glucose', []);
+                userAppointments = StorageService.loadUserData('appointments', []);
+                updateCarbAlerts();
+            }
+        }
+
+        // ** 5. UTILIDADES DE UI/UX **
+
+        function getFormattedDateTime() {
+            const now = new Date();
+            const date = now.toLocaleDateString('es-PE');
+            const time = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+            return { date, time };
+        }
+
+        // FUNCIÓN MEJORADA PARA MOSTRAR MENSAJES (TOAST) DENTRO DEL CONTENEDOR
+        function showMessage(text, colorClass = 'bg-primary', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return; 
+
+            const msg = document.createElement('div');
+            
+            // Texto blanco sobre fondos de color sólido para alto contraste (FIX)
+            msg.className = `p-3 ${colorClass} text-white rounded-xl shadow-lg transition-all transform opacity-0 translate-y-2 mb-2 pointer-events-auto`;
+            
+            // Excepción para el fondo de advertencia (amarillo claro)
+            if (colorClass === 'bg-warning' || colorClass === 'bg-secondary' || colorClass === 'bg-gray-100') {
+                msg.classList.remove('text-white');
+                msg.classList.add('text-gray-800'); // Texto oscuro sobre fondo claro
+            }
+
+            msg.textContent = text;
+            container.prepend(msg); 
+
+            void msg.offsetWidth;
+            msg.classList.remove('opacity-0', 'translate-y-2');
+            msg.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                msg.classList.remove('opacity-100', 'translate-y-0');
+                msg.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => msg.remove(), 300); 
+            }, duration);
+        }
+
+        // LÓGICA DE NAVEGACIÓN CORREGIDA
+        function updateAppUI(pageId) {
+            const isAuthPage = ['welcome', 'login', 'register'].includes(pageId);
+            
+            // Ocultar/Mostrar Header
+            document.getElementById('app-header').classList[isAuthPage ? 'add' : 'remove']('hide-on-auth');
+            // Ocultar/Mostrar Bottom Nav
+            document.getElementById('bottom-nav').classList[isAuthPage ? 'add' : 'remove']('hide-on-auth');
+
+            CONTENT_DIV.classList.toggle('pb-20', !isAuthPage); 
+            CONTENT_DIV.classList.toggle('min-h-screen', isAuthPage); 
+
+            // Actualizar estados de navegación de la barra inferior
+             if (!isAuthPage) {
+                 Object.keys(navButtons).forEach(key => { 
+                    const btn = navButtons[key];
+                    if (!btn) return; 
+                    
+                    const text = btn.querySelector('span');
+                    const icon = btn.querySelector('.nav-icon') || btn.querySelector('svg');
+
+                    // CORRECCIÓN DE CONTRASTE: Usar text-primary para el activo y text-gray-500 para inactivo
+                    if (key === pageId) {
+                        if(text) { text.classList.replace('text-gray-500', 'text-primary'); text.classList.add('font-semibold'); }
+                        if(icon) { icon.classList.replace('text-gray-500', 'text-primary'); }
+                    } else {
+                        if(text) { text.classList.replace('text-primary', 'text-gray-500'); text.classList.remove('font-semibold'); }
+                        if(icon) { icon.classList.replace('text-primary', 'text-gray-500'); }
+                    }
+                });
+            }
         }
         
-        // Función para renderizar el historial de bitácora
-        function renderLogList() {
-            const logList = document.getElementById('log-list');
-            if (!logList) return;
-
-            // Ordenar por hora (el más reciente primero)
-            const sortedEntries = [...logEntries].reverse();
-            
-            logList.innerHTML = sortedEntries.map(entry => `
-                <li class="p-2 bg-gray-50 rounded-lg flex justify-between items-center border-l-4 ${entry.color}">
-                    <span class="font-medium">${entry.content}</span>
-                </li>
-            `).join('');
-
-            // Si está vacío, mostrar un mensaje
-            if (logEntries.length === 0) {
-                logList.innerHTML = '<li class="text-center text-gray-500 py-4">Aún no hay registros hoy. ¡Empieza ahora!</li>';
-            }
-        }
-
-        // --- Funcionalidad del Dashboard y Log ---
-        function recordEmotion(emotion) {
-            const statusElement = document.getElementById('emotion-status');
-            const now = new Date();
-            const time = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-
-            statusElement.textContent = `¡Emoción registrada! Te sientes: ${emotion}`;
-            
-            let colorClass = 'border-success';
-            let alertNeeded = false;
-
-            if (emotion.includes('Estresado') || emotion.includes('Cansado') || emotion.includes('Culpable')) {
-                colorClass = 'border-danger';
-                alertNeeded = true;
-            }
-
-            // Añadir al array de Bitácora
-            logEntries.push({
-                time: time,
-                type: 'Emoción',
-                content: `${time}: Emoción registrada (${emotion})`,
-                color: colorClass
-            });
-
-            // Mostrar el Kit de Calma si es necesario (Prueba de Interacción)
-            if (alertNeeded) {
-                openModal('modal-kit');
-            }
-            
-            // Si la vista actual es la bitácora, la re-renderizamos
-            if (currentPage === 'log') {
-                renderLogList();
-            }
-        }
-
-        function logEntry(type) {
-            const now = new Date();
-            const time = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-
-            let colorClass = 'border-primary';
-            let content = `Registro: ${type}`;
-
-            if (type.includes('Antojo')) {
-                colorClass = 'border-red-400';
-                content = `${time}: Cuidado con el Antojo! (Comida de la calle)`;
-            } else if (type.includes('Casa')) {
-                colorClass = 'border-success';
-                content = `${time}: Comida: Casa (Buena elección!)`;
-            } else {
-                content = `${time}: Comida: Calle`;
-            }
-            
-            // Añadir al array de Bitácora
-            logEntries.push({
-                time: time,
-                type: 'Comida',
-                content: content,
-                color: colorClass
-            });
-            
-            // Mostrar mensaje de confirmación temporal
-            const msg = document.createElement('div');
-            msg.className = 'fixed top-20 right-4 p-3 bg-primary text-white rounded-xl shadow-lg transition duration-300';
-            msg.textContent = '¡Bitácora actualizada!';
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 2000);
-            
-            // Si la vista actual es la bitácora, la re-renderizamos
-            if (currentPage === 'log') {
-                renderLogList();
-            }
-        }
-
-        function startCalmKit() {
-            closeModal('modal-kit');
-            // Simulación de un kit de calma (ej. técnica 5-4-3-2-1)
-            const msg = document.createElement('div');
-            msg.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-5 bg-yellow-400 text-gray-800 rounded-2xl shadow-2xl font-extrabold text-lg text-center';
-            msg.textContent = '5 COSAS que puedes ver... RESPIRA.';
-            document.body.appendChild(msg);
-            setTimeout(() => {
-                msg.textContent = '4 COSAS que puedes tocar... RESPIRA.';
-                setTimeout(() => {
-                    msg.textContent = '¡Calma restaurada! Sigue con tu día.';
-                    setTimeout(() => msg.remove(), 2000);
-                }, 3000);
-            }, 3000);
-        }
-
-        // --- Manejo de Modales y Pago ---
         function openModal(modalId) {
             document.getElementById(modalId).classList.remove('hidden');
             document.getElementById(modalId).classList.add('flex');
@@ -595,33 +363,639 @@
             document.getElementById(modalId).classList.remove('flex');
         }
 
-        function processPayment() {
-            closeModal('modal-appointment-confirm');
-            loadingOverlay.style.display = 'flex';
+        function showAppAlerts() {
+            const alertsContent = document.getElementById('alerts-content');
+            let html = '';
+            const totalCarbs = getCurrentCarbTotal();
+            const carbPercentage = (totalCarbs / CARBS_LIMIT) * 100;
 
-            // Simular un proceso de pago asíncrono (Viabilidad)
-            setTimeout(() => {
-                loadingOverlay.style.display = 'none';
+            if (carbPercentage >= 100) {
+                html += `<div class="p-3 rounded-xl bg-danger text-white flex items-center shadow-md mb-2">
+                    <i data-lucide="alert-triangle" class="w-6 h-6 mr-3"></i>
+                    <p class="font-bold">¡Límite Excedido! Ya consumiste ${totalCarbs}g de ${CARBS_LIMIT}g.</p>
+                </div>`;
+            } else if (carbPercentage >= 90) {
+                // FIX: Usar text-gray-800 para alto contraste en fondo amarillo
+                html += `<div class="p-3 rounded-xl bg-warning text-gray-800 flex items-center shadow-md mb-2">
+                    <i data-lucide="radiation" class="w-6 h-6 mr-3"></i>
+                    <p class="font-bold">Advertencia: ¡Casi al Límite! Llevas el ${Math.round(carbPercentage)}% de tus carbohidratos.</p>
+                </div>`;
+            } else {
+                // FIX: Usar text-white para alto contraste en fondo verde (success)
+                html += `<div class="p-3 rounded-xl bg-success text-black flex items-center shadow-md mb-2">
+                    <i data-lucide="check-circle" class="w-6 h-6 mr-3"></i>
+                    <p class="font-bold">Tu consumo de carbohidratos está bajo control.</p>
+                </div>`;
+            }
+            
+            const unpaidAppointment = userAppointments.find(appt => appt.status === 'pending_payment');
+            if (unpaidAppointment) {
+                 // FIX: Usar text-gray-800 para alto contraste en fondo secundario (naranja claro)
+                 html += `<div class="p-3 rounded-xl bg-secondary text-gray-800 flex items-center shadow-md mt-3">
+                    <i data-lucide="calendar-x" class="w-6 h-6 mr-3 text-primary"></i>
+                    <p>Tienes una cita pendiente de pago. ¡Revísala en Citas!</p>
+                </div>`;
+            } else {
+                 // FIX: Usar text-gray-600 para alto contraste en fondo gris claro
+                html += `<div class="p-3 rounded-xl bg-gray-100 text-gray-600 flex items-center shadow-md mt-3">
+                    <i data-lucide="calendar-check" class="w-6 h-6 mr-3 text-success"></i>
+                    <p>No tienes pagos pendientes de citas.</p>
+                </div>`;
+            }
+
+            alertsContent.innerHTML = html;
+            lucide.createIcons();
+            openModal('modal-alerts');
+        }
+        
+        function updateCarbAlerts() {
+            const totalCarbs = getCurrentCarbTotal();
+            const carbPercentage = (totalCarbs / CARBS_LIMIT) * 100;
+            const badge = document.getElementById('alert-badge');
+
+            if (carbPercentage >= 90 || userAppointments.find(a => a.status === 'pending_payment')) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function startCalmKit() {
+            closeModal('modal-calm-kit');
+            const steps = [
+                '5 COSAS que puedes ver... RESPIRA.',
+                '4 COSAS que puedes tocar... RESPIRA.',
+                '3 COSAS que puedes oír... RESPIRA.',
+                '2 COSAS que puedes oler... RESPIRA.',
+                '1 COSA que puedes probar... RESPIRA.'
+            ];
+
+            let stepIndex = 0;
+            const container = document.getElementById('toast-container');
+            const msg = document.createElement('div');
+            // FIX: Usar text-gray-800 para alto contraste en fondo amarillo (warning)
+            msg.className = 'p-5 bg-warning text-gray-800 rounded-2xl shadow-2xl font-extrabold text-lg text-center z-50 transition-all mb-2';
+            container.prepend(msg); 
+
+            function showNextStep() {
+                if (stepIndex < steps.length) {
+                    msg.textContent = steps[stepIndex];
+                    stepIndex++;
+                    setTimeout(showNextStep, 3000);
+                } else {
+                    msg.textContent = '¡Calma restaurada! Sigue con tu día.';
+                    setTimeout(() => msg.remove(), 2000);
+                }
+            }
+
+            showNextStep();
+        }
+
+        // ** 6. LÓGICA DE BITÁCORA (LOG) **
+
+        function getCurrentCarbTotal() {
+            const today = new Date().toLocaleDateString('es-PE');
+            return userCarbLog
+                .filter(log => log.date === today && log.carbs > 0)
+                .reduce((sum, log) => sum + log.carbs, 0);
+        }
+
+        function handleRegisterMeal() {
+            const mealSelect = document.getElementById('meal-select');
+            const mealData = PERUVIAN_MEALS.find(m => m.name === mealSelect.value);
+
+            if (mealData) {
+                const { date, time } = getFormattedDateTime();
+                userCarbLog.push({
+                    date,
+                    time,
+                    type: 'Comida',
+                    content: mealData.name,
+                    carbs: mealData.carbs,
+                    color: 'border-primary'
+                });
+                StorageService.saveUserData('carbs', userCarbLog);
+                showMessage(`${mealData.name} (${mealData.carbs}g) registrado.`, 'bg-primary');
+                updateCarbAlerts();
+                renderLogList();
+            }
+        }
+
+        function handleRegisterGlucose() {
+            const glucoseInput = document.getElementById('glucose-input');
+            const glucoseValue = parseInt(glucoseInput.value);
+
+            if (glucoseValue && glucoseValue > 0) {
+                const { date, time } = getFormattedDateTime();
+                userGlucoseLog.push({ date, time, value: glucoseValue, type: 'Glucosa' }); 
+                StorageService.saveUserData('glucose', userGlucoseLog);
+                showMessage(`Glucosa (${glucoseValue} mg/dL) registrada.`, 'bg-success');
+                glucoseInput.value = '';
+                renderLogList();
+            } else {
+                showMessage('Ingresa un valor de glucosa válido.', 'bg-danger');
+            }
+        }
+
+        function renderLogList() {
+            const logList = document.getElementById('log-list');
+            if (!logList) return;
+
+            const allLogs = [...userCarbLog, ...userGlucoseLog];
+            allLogs.sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime());
+            allLogs.reverse();
+            
+            const todayLogs = allLogs.filter(log => log.date === new Date().toLocaleDateString('es-PE'));
+
+            logList.innerHTML = todayLogs.map(entry => {
+                let icon = '';
+                let color = 'border-gray-300';
+                let content = '';
                 
-                // Mostrar confirmación
-                const confirmation = document.createElement('div');
-                confirmation.className = 'fixed top-20 right-4 p-4 bg-green-600 text-white rounded-xl shadow-lg transition duration-300';
-                confirmation.innerHTML = '<strong class="font-bold">¡Cita Agendada!</strong> Tu cita de S/ 60 ha sido confirmada. Revisa tu correo.';
-                document.body.appendChild(confirmation);
-                setTimeout(() => confirmation.remove(), 5000);
+                if (entry.type === 'Comida') {
+                    icon = `<i data-lucide="utensils" class="w-4 h-4 mr-2 text-primary"></i>`;
+                    content = `${entry.content} (${entry.carbs}g Carbs)`;
+                    color = 'border-primary';
+                } else if (entry.type === 'Glucosa') {
+                    icon = `<i data-lucide="droplet" class="w-4 h-4 mr-2 text-success"></i>`;
+                    content = `Glucosa: ${entry.value} mg/dL`;
+                    color = 'border-success';
+                }
 
-                // Redirigir al inicio después de la confirmación
-                showPage('home');
+                return `
+                    <li class="p-3 bg-gray-50 rounded-lg flex justify-between items-center border-l-4 ${color} shadow-sm">
+                        <div class="flex items-center">
+                            ${icon}
+                            <span class="font-medium text-gray-800">${content}</span>
+                        </div>
+                        <span class="text-xs text-gray-500">${entry.time}</span>
+                    </li>
+                `;
+            }).join('');
 
-            }, 3000); // 3 segundos de simulación de carga
+            if (todayLogs.length === 0) {
+                logList.innerHTML = '<li class="text-center text-gray-500 py-4">Aún no hay registros hoy. ¡Empieza ahora!</li>';
+            }
+            lucide.createIcons();
+        }
+
+        function renderGlucoseChart() {
+            const ctx = document.getElementById('glucose-chart-canvas');
+            if (!ctx) return;
+
+            const logs = userGlucoseLog
+                .filter(log => log.type === 'Glucosa')
+                .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime());
+
+            const labels = logs.map(log => log.time);
+            const data = logs.map(log => log.value);
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nivel de Glucosa (mg/dL)',
+                        data: data,
+                        borderColor: '#F97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        tension: 0.3,
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Registro de Glucosa del Día' }
+                    },
+                    scales: {
+                        y: { beginAtZero: false, title: { display: true, text: 'Glucosa (mg/dL)' } }
+                    }
+                }
+            });
+        }
+
+        // ** 7. LÓGICA DE CITAS **
+
+        function handleReserveAppointment() {
+            const dateInput = document.getElementById('appointment-date').value;
+            const timeSelect = document.getElementById('appointment-time').value;
+
+            // 1. Marcar la cita como pendiente de pago
+            const newAppt = {
+                date: dateInput,
+                time: timeSelect,
+                status: 'pending_payment',
+                meetLink: MEET_LINK
+            };
+            // Limpiar cualquier cita anterior pendiente para evitar duplicados
+            userAppointments = userAppointments.filter(a => a.status !== 'pending_payment'); 
+            userAppointments.push(newAppt);
+            StorageService.saveUserData('appointments', userAppointments);
+
+            // 2. Mostrar la pantalla de pago con QR y botón de confirmación
+            const confirmationHtml = `
+                <div class="flex flex-col items-center justify-center p-6 text-center">
+                    <h3 class="text-2xl font-bold text-primary mb-4">Paso 2: Realiza el Pago</h3>
+                    <p class="text-gray-700 mb-6">Completa el pago de **S/ 60** a través de tu aplicación bancaria usando el QR PLIN. Luego, presiona el botón para confirmar y recibir el link de tu cita.</p>
+                    <div class="flex justify-center my-6">
+                        <img src="${PLIN_QR_IMAGE}" onerror="this.src='https://placehold.co/192x192/F97316/FFFFFF?text=QR+PLIN'" alt="QR PLIN para pago" class="w-48 h-48 rounded-xl border-4 border-primary shadow-xl">
+                    </div>
+                    
+                    <button onclick="simulatePaymentAndConfirm()" class="w-full bg-success hover-success-dark text-white font-bold py-3 px-4 rounded-xl shadow-xl transition duration-150 border-2 border-success/50">
+                        Ya Pagué, Confirmar Cita
+                    </button>
+                    
+                    <!-- Botón de retorno a citas con alto contraste -->
+                    <button onclick="showPage('appointment')" class="w-full mt-3 text-gray-800 hover:text-primary font-bold py-2 px-4 rounded-xl transition border-2 border-gray-300 bg-secondary hover-gray-dark">
+                        Volver a Citas
+                    </button>
+                </div>
+            `;
+            CONTENT_DIV.innerHTML = confirmationHtml;
+            // Ocultar barra inferior y mostrar header (como en la navegación normal)
+            document.getElementById('bottom-nav').classList.add('hide-on-auth'); 
+            document.getElementById('app-header').classList.remove('hide-on-auth');
+            updateCarbAlerts();
+        }
+        
+        // Nueva función para simular el pago y la confirmación
+        function simulatePaymentAndConfirm() {
+            const apptIndex = userAppointments.findIndex(a => a.status === 'pending_payment');
+            if (apptIndex === -1) {
+                return showMessage('Error: No hay cita pendiente de pago.', 'bg-danger');
+            }
+
+            // FIX: Referencia a loadingText correcta
+            const loadingTextElement = document.getElementById('loading-text');
+            if (loadingTextElement) loadingTextElement.textContent = 'Verificando pago y confirmando cita...';
+
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('loading-overlay').classList.add('flex');
+
+            // Simular el proceso de pago con un retraso
+            setTimeout(() => {
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('loading-overlay').classList.remove('flex');
+
+                userAppointments[apptIndex].status = 'confirmed';
+                StorageService.saveUserData('appointments', userAppointments);
+
+                showMessage('¡Pago Confirmado! Tu cita ha sido agendada con éxito.', 'bg-success', 5000);
+                
+                // Regresar a la vista de citas para ver el link habilitado
+                showPage('appointment'); 
+            }, 3000); 
+        }
+
+        function renderAppointments() {
+            const apptList = document.getElementById('appointment-list');
+            if (!apptList) return;
+
+            if (userAppointments.length === 0) {
+                apptList.innerHTML = '<li class="text-center text-gray-500 py-4">No tienes citas agendadas.</li>';
+                return;
+            }
+
+            apptList.innerHTML = userAppointments.map(appt => {
+                let statusText = '';
+                let statusColor = '';
+                let actionButton = '';
+
+                if (appt.status === 'confirmed') {
+                    statusText = 'Confirmada';
+                    statusColor = 'bg-success';
+                    // FIX: Botón de Meet con hover oscuro
+                    actionButton = `<a href="${appt.meetLink}" target="_blank" class="w-full mt-3 bg-primary hover-primary-dark text-white font-bold py-2 px-4 rounded-xl transition duration-150 flex items-center justify-center border-2 border-primary/50 shadow-md">
+                        <i data-lucide="video" class="w-5 h-5 mr-2"></i> Unirse a la Cita (Meet)
+                    </a>`;
+                } else {
+                    statusText = 'Pendiente de Pago';
+                    statusColor = 'bg-danger';
+                    // FIX: Botón de pago con hover oscuro
+                    actionButton = `<button onclick="handleReserveAppointment()" class="w-full mt-3 bg-danger hover-danger-dark text-white font-bold py-2 px-4 rounded-xl transition duration-150 border-2 border-danger/50 shadow-md">
+                        Pagar y Confirmar
+                    </button>`;
+                }
+
+                return `
+                    <li class="p-4 rounded-xl border-l-4 border-primary shadow-lg bg-white card-shadow">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="font-bold text-gray-800 text-lg">${appt.date} a las ${appt.time}</p>
+                                <p class="text-sm text-gray-600">Psicólogo Asignado: **Dr. Apoyo**</p>
+                            </div>
+                            <span class="text-xs font-semibold px-3 py-1 rounded-full ${statusColor} text-white">${statusText}</span>
+                        </div>
+                        ${actionButton}
+                    </li>
+                `;
+            }).join('');
+
+            lucide.createIcons();
         }
 
 
-        // Iniciar la aplicación en la página de bienvenida
-        document.addEventListener('DOMContentLoaded', () => {
-            showPage('welcome');
-        });
+        // ** 8. GESTIÓN DE VISTAS Y ROUTING **
 
+        const PAGES = {
+            // VISTAS DE AUTENTICACIÓN
+            welcome: () => `
+                <div class="flex flex-col items-center justify-center min-h-[calc(100vh-2rem)] p-6 text-center">
+                    <!-- FIX: Ruta de Logo actualizada -->
+                    <img src="${LOGO_IMAGE}" onerror="this.src='https://placehold.co/96x96/F97316/FFFFFF?text=BC+Logo'" alt="Logo de la App" class="w-24 h-24 rounded-full mb-6 border-4 border-primary shadow-xl">
+                    <h1 class="text-3xl font-extrabold text-primary mb-3">Bienestar Contigo</h1>
+                    <p class="text-md text-gray-700 mb-8">Tu guía emocional y nutricional sin culpa, enfocada en diabetes tipo 2.</p>
+                    
+                    <button onclick="showPage('login')" class="auth-button auth-button-primary hover-primary-dark mb-3 transition duration-150 transform hover:scale-[1.01]">
+                        Iniciar Sesión
+                    </button>
+                    <button onclick="showPage('register')" class="auth-button bg-gray-200 hover-gray-dark text-gray-800 border-2 border-gray-300">
+                        Crear Cuenta
+                    </button>
+                </div>
+            `,
+            login: () => `
+                <div class="p-6">
+                    <h2 class="text-3xl font-bold text-primary mb-8 text-center">Inicia Sesión</h2>
+                    <form onsubmit="event.preventDefault(); AuthService.login(document.getElementById('login-email').value, document.getElementById('login-password').value)">
+                        <div class="mb-4">
+                            <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" id="login-email" required class="w-full p-3 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary">
+                        </div>
+                        <div class="mb-6">
+                            <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                            <input type="password" id="login-password" required class="w-full p-3 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary">
+                        </div>
+                        <button type="submit" class="auth-button auth-button-primary hover-primary-dark transition duration-150">
+                            Acceder
+                        </button>
+                    </form>
+                    <p class="mt-6 text-center text-sm text-gray-600">
+                        ¿No tienes cuenta? <a href="#" onclick="showPage('register')" class="text-primary font-semibold hover:underline">Regístrate aquí</a>
+                    </p>
+                </div>
+            `,
+            register: () => `
+                <div class="p-6">
+                    <h2 class="text-3xl font-bold text-primary mb-8 text-center">Crea tu Cuenta</h2>
+                    <form onsubmit="event.preventDefault(); AuthService.register(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value) && showPage('login')">
+                        <div class="mb-4">
+                            <label for="reg-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                            <input type="text" id="reg-name" required class="w-full p-3 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary">
+                        </div>
+                        <div class="mb-4">
+                            <label for="reg-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" id="reg-email" required class="w-full p-3 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary">
+                        </div>
+                        <div class="mb-6">
+                            <label for="reg-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                            <input type="password" id="reg-password" required class="w-full p-3 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary">
+                        </div>
+                        <button type="submit" class="auth-button auth-button-success hover-success-dark transition duration-150">
+                            Crear Cuenta
+                        </button>
+                    </form>
+                    <p class="mt-6 text-center text-sm text-gray-600">
+                        ¿Ya tienes cuenta? <a href="#" onclick="showPage('login')" class="text-primary font-semibold hover:underline">Inicia Sesión</a>
+                    </p>
+                </div>
+            `,
+            // VISTAS PRINCIPALES
+            home: () => {
+                const totalCarbs = getCurrentCarbTotal();
+                const carbPercentage = Math.round((totalCarbs / CARBS_LIMIT) * 100);
+                const carbColor = carbPercentage >= 100 ? 'bg-danger' : (carbPercentage >= 90 ? 'bg-warning' : 'bg-success');
+
+                return `
+                    <div class="space-y-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">¡Hola, ${currentUser.name || 'Usuario'}! 👋</h2>
+                        
+                        <!-- Contador de Carbohidratos -->
+                        <div class="bg-primary p-5 rounded-2xl shadow-lg border-2 border-primary/50 text-white card-shadow">
+                            <h2 class="text-xl font-bold mb-2 flex items-center">
+                                <i data-lucide="carrot" class="w-6 h-6 mr-2"></i>
+                                Carbohidratos Hoy
+                            </h2>
+                            <p class="text-sm mb-4">Límite Diario: **${CARBS_LIMIT}g**</p>
+                            
+                            <div class="text-center">
+                                <span class="text-5xl font-extrabold">${totalCarbs}g</span> / <span class="text-xl">${CARBS_LIMIT}g</span>
+                            </div>
+                            
+                            <div class="w-full h-3 ${carbColor} rounded-full mt-3 overflow-hidden">
+                                <div class="h-full bg-white/30" style="width: ${Math.min(100, carbPercentage)}%"></div>
+                            </div>
+                            <p class="text-xs mt-1 text-center">${carbPercentage}% Consumido</p>
+
+                            <button onclick="showPage('log')" class="w-full mt-4 bg-white/20 hover-primary-dark text-white font-bold py-2 px-4 rounded-xl transition border-2 border-white/50 shadow-md">
+                                Registrar Comida o Glucosa
+                            </button>
+                        </div>
+
+                        <!-- Panel de Glucosa (Gráfico) -->
+                        <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                            <h2 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                                <i data-lucide="trending-up" class="w-5 h-5 mr-2 text-primary"></i>
+                                Tu Nivel de Glucosa (Hoy)
+                            </h2>
+                            <div class="h-64">
+                                <canvas id="glucose-chart-canvas"></canvas>
+                            </div>
+                            <p class="text-sm text-center text-gray-600 mt-3">Registra tu medición diaria en Bitácora.</p>
+                        </div>
+
+                        <!-- Kit de Calma Rápido -->
+                        <div class="bg-secondary p-4 rounded-2xl shadow-md border border-primary/20">
+                            <h3 class="font-bold text-gray-800">¿Estrés o Culpa?</h3>
+                            <p class="text-sm text-gray-600 mb-3">Toma una pausa. Aquí tienes un ejercicio de primeros auxilios emocionales.</p>
+                            <button onclick="openModal('modal-calm-kit')" class="bg-danger hover-danger-dark text-black font-bold py-2 px-4 rounded-xl transition flex items-center border-2 border-danger/50 shadow-md">
+                                <i data-lucide="heart-handshake" class="w-5 h-5 mr-2"></i> Iniciar Kit de Calma
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+            log: () => `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Bitácora Diario - ${new Date().toLocaleDateString('es-PE')}</h2>
+                    
+                    <!-- Formulario de Registro de Glucosa -->
+                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                        <h3 class="text-lg font-bold text-success mb-3 flex items-center">
+                            <i data-lucide="droplet" class="w-5 h-5 mr-2"></i>
+                            Glucosa en Sangre (Pinchazo)
+                        </h3>
+                        <div class="flex space-x-3 items-center">
+                            <input type="number" id="glucose-input" placeholder="Glucosa (mg/dL)" class="flex-grow p-3 border border-gray-300 rounded-xl focus:ring-success focus:border-success">
+                            <!-- FIX: Botón de envío con hover oscuro -->
+                            <button onclick="handleRegisterGlucose()" class="bg-success hover-success-dark text-black font-bold rounded-xl transition shadow-md flex-shrink-0 w-12 h-12 flex justify-center items-center">
+                                <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Registro de Comida -->
+                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                        <h3 class="text-lg font-bold text-primary mb-3 flex items-center">
+                            <i data-lucide="utensils" class="w-5 h-5 mr-2"></i>
+                            Registro de Comida Peruana
+                        </h3>
+                        <p class="text-sm text-gray-600 mb-4">Selecciona un plato para sumar sus carbohidratos (g).</p>
+                        <div class="flex space-x-3 items-center">
+                            <select id="meal-select" class="flex-1 w-0 truncate p-3 border border-gray-300 rounded-xl focus:ring-primary focus:border-primary bg-white">
+                                ${PERUVIAN_MEALS.map(m => `<option value="${m.name}">${m.name} (${m.carbs}g)</option>`).join('')}
+                            </select>
+                            <!-- FIX: Botón de envío con hover oscuro -->
+                            <button onclick="handleRegisterMeal()" class="bg-primary hover-primary-dark text-white font-bold rounded-xl transition shadow-md flex-shrink-0 w-12 h-12 flex justify-center items-center ml-3">
+                                <i data-lucide="send" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Bitácora -->
+                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Tu Historial de Hoy</h3>
+                        <ul id="log-list" class="space-y-2 text-sm text-gray-700">
+                        </ul>
+                    </div>
+                </div>
+            `,
+            info: () => `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Info y Guía Sin Culpa</h2>
+                    <p class="text-md text-gray-700 mb-6">Esta sección es para ti, que recién comienzas. ¡Respira! No estás solo.</p>
+
+                    <!-- Consejos Principales -->
+                    <div class="space-y-4">
+                        ${INFO_DB.map(item => `
+                            <div class="bg-white p-4 rounded-xl shadow-md flex items-start space-x-3 border border-gray-100 card-shadow">
+                                <div class="p-2 bg-secondary rounded-full flex-shrink-0">
+                                    <i data-lucide="${item.icon}" class="w-6 h-6 text-${item.color}"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800">${item.title}</h4>
+                                    <p class="text-sm text-gray-600">${item.content}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Base de Datos de Carbohidratos -->
+                    <div class="bg-secondary p-5 rounded-2xl shadow-lg border border-primary/20 card-shadow">
+                        <h3 class="text-lg font-bold text-primary mb-3 flex items-center">
+                            <i data-lucide="list-checks" class="w-5 h-5 mr-2"></i>
+                            Carbohidratos en Platos Peruanos
+                        </h3>
+                        <ul class="space-y-2 text-sm text-gray-700">
+                            ${PERUVIAN_MEALS.map(m => `
+                                <li class="flex justify-between border-b border-gray-200 py-1">
+                                    <span>${m.name}</span>
+                                    <span class="font-bold text-primary">${m.carbs}g</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <p class="text-xs text-gray-500 mt-3">*Valores promedio aproximados para ayudar al conteo.</p>
+                    </div>
+                </div>
+            `,
+            appointment: () => `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Agendar Cita Psicológica 🤝</h2>
+
+                    <!-- Información del Servicio -->
+                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                        <h3 class="text-xl font-bold text-primary mb-3">Apoyo Profesional Accesible (S/ 60)</h3>
+                        <p class="text-gray-700 mb-3">Sesión confidencial (45 min) para manejar la culpa y el estrés de la diabetes.</p>
+                    </div>
+
+                    <!-- Formulario de Reserva -->
+                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Selecciona tu disponibilidad</h3>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Preferida</label>
+                        <input type="date" id="appointment-date" value="${new Date().toISOString().slice(0, 10)}" min="${new Date().toISOString().slice(0, 10)}" class="w-full p-3 border border-gray-300 rounded-xl mb-4">
+                        
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hora Disponible</label>
+                        <select id="appointment-time" class="w-full p-3 border border-gray-300 rounded-xl">
+                            <option value="09:00 AM">09:00 AM</option>
+                            <option value="11:30 AM">11:30 AM</option>
+                            <option value="03:00 PM">03:00 PM</option>
+                        </select>
+                        <button onclick="handleReserveAppointment()" class="w-full bg-primary hover-primary-dark text-white font-bold py-3 px-4 rounded-xl shadow-xl transition duration-150 mt-5 border-2 border-primary/50">
+                            Reservar y Pagar (S/ 60)
+                        </button>
+                    </div>
+
+                    <!-- Citas Agendadas -->
+                    <div class="bg-white p-5 rounded-2xl shadow-lg border border-gray-100 card-shadow">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                            <i data-lucide="list-checks" class="w-5 h-5 mr-2 text-primary"></i>
+                            Tus Próximas Citas
+                        </h3>
+                        <ul id="appointment-list" class="space-y-3">
+                            <!-- Citas se cargan aquí -->
+                        </ul>
+                    </div>
+                </div>
+            `
+        };
+
+        function showPage(pageId) {
+            if (!PAGES[pageId]) return showPage('home');
+            
+            if (!currentUser && !['welcome', 'login', 'register'].includes(pageId)) {
+                return showPage('welcome');
+            }
+
+            CONTENT_DIV.innerHTML = PAGES[pageId]();
+            updateAppUI(pageId); 
+
+            setTimeout(() => {
+                lucide.createIcons();
+                
+                if (pageId === 'log') {
+                    renderLogList();
+                    // Resetear la barra de navegación si venía de la vista de pago
+                    document.getElementById('bottom-nav').classList.remove('hide-on-auth');
+                } else if (pageId === 'home') {
+                    renderGlucoseChart();
+                } else if (pageId === 'appointment') {
+                    renderAppointments();
+                }
+            }, 50);
+        }
+
+        // ** 9. INICIALIZACIÓN **
+
+        document.addEventListener('DOMContentLoaded', () => {
+             // CRITICAL FIX: Initialize navButtons here
+             navButtons = {
+                home: document.getElementById('nav-home'),
+                log: document.getElementById('nav-log'),
+                info: document.getElementById('nav-info'),
+                appointment: document.getElementById('nav-appointment')
+            };
+
+            AuthService.check();
+        });
+        
+        // Exponer funciones globales para el HTML
+        window.showPage = showPage;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.AuthService = AuthService;
+        window.handleRegisterMeal = handleRegisterMeal;
+        window.handleRegisterGlucose = handleRegisterGlucose;
+        window.handleReserveAppointment = handleReserveAppointment;
+        window.simulatePaymentAndConfirm = simulatePaymentAndConfirm; 
+        window.showAppAlerts = showAppAlerts;
+        window.startCalmKit = startCalmKit;
     </script>
 </body>
 </html>
